@@ -1,13 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.20.3 - 2026-09-13
 
-- Tests: complete the Vitest 5 migration, keep runner and V8 coverage versions aligned, and verify Node 24 and 26 across Linux, macOS, and Windows with coverage on Linux; retain the Node >=24 runtime floor.
-- Dependencies: update Google GenAI to 2.22.0, Zod to 4.6.2, and the Chrome DevTools protocol snapshot; refresh transitive dependencies within the two-day release-age policy.
+**Highlights:** Gemini is selected consistently across CLI, MCP, and detached workers; cookie values are redacted from verbose logs.
+
 - Browser: select Gemini consistently for local CLI, MCP, and detached workers, preserve saved Gemini options and HTTP cancellation, and reject unsupported remote Gemini requests before submission.
 - Browser: redact inline cookie values in verbose session logs while preserving credentials for execution.
 - Browser: recognize prompt echoes across whitespace changes, preserve literal backslashes, and share prompt-preview matching between sidebar lookup and recovery.
+- Dependencies: update Google GenAI to 2.22.0, Zod to 4.6.2, and the Chrome DevTools protocol snapshot; refresh transitive dependencies within the two-day release-age policy.
 - Dependencies: refresh OpenAI, Chrome DevTools protocol, Hono, Vite, and pnpm; remove unused SDK/type packages while retaining Node >=24 and the two-day release-age policy.
+- Tests: complete the Vitest 5 migration, keep runner and V8 coverage versions aligned, and verify Node 24 and 26 across Linux, macOS, and Windows with coverage on Linux; retain the Node >=24 runtime floor.
 
 ## 0.20.2 - 2026-09-11
 
