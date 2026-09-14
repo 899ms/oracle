@@ -1,3 +1,4 @@
+import type { ProviderNativeCaptureSummary } from "./chatgptConversation.js";
 import type CDP from "chrome-remote-interface";
 import type Protocol from "devtools-protocol";
 import type {
@@ -132,6 +133,8 @@ export interface BrowserAutomationConfig {
   archiveConversations?: BrowserArchiveMode;
   /** Existing ChatGPT conversation URL to open before submitting the prompt. */
   resumeConversationUrl?: string | null;
+  /** Capture ChatGPT's own conversation document plus independent per-turn digests. */
+  captureProviderNative?: boolean;
 }
 
 export interface BrowserRunOptions {
@@ -210,6 +213,7 @@ export interface BrowserRunResult {
   archive?: BrowserArchiveResult;
   modelSelection?: BrowserModelSelectionEvidence;
   thinkingSelection?: BrowserThinkingSelectionEvidence;
+  providerNativeCapture?: ProviderNativeCaptureSummary;
   warnings?: BrowserRunWarning[];
   tookMs: number;
   answerTokens: number;

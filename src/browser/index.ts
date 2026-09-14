@@ -57,6 +57,10 @@ import { INPUT_SELECTORS } from "./constants.js";
 import { uploadAttachmentViaDataTransfer } from "./actions/remoteFileTransfer.js";
 import { ensureThinkingTime } from "./actions/thinkingTime.js";
 import { throwIfAssistantUiError } from "./actions/assistantResponse.js";
+import {
+  finalizeProviderNativeCapture,
+  type ProviderNativeCaptureSummary,
+} from "./chatgptConversation.js";
 import { startThinkingStatusMonitor } from "./actions/thinkingStatus.js";
 import {
   classifyChatGptUiWarningText,
@@ -75,6 +79,7 @@ import { formatElapsed } from "../oracle/format.js";
 import type {
   BrowserModelSelectionEvidence,
   BrowserThinkingSelectionEvidence,
+  SessionArtifact,
 } from "../sessionStore.js";
 import { CHATGPT_URL, DEFAULT_MODEL_STRATEGY } from "./constants.js";
 import type { LaunchedChrome } from "chrome-launcher";
@@ -787,6 +792,40 @@ function formatBrowserLeaseDiagnostics(options: {
   ].join("; ");
 }
 
+/**
+ * Provider-native capture, gated on explicit opt-in.
+ *
+ * Off by default because it costs two extra authenticated requests per run and
+ * only matters when a caller intends to treat the transcript as evidence rather
+ * than as an answer. When it is on and it fails, the run is unaffected: the
+ * summary records why, and nothing throws.
+ */
+async function runProviderNativeCapture(params: {
+  Runtime: ChromeClient["Runtime"];
+  config: ResolvedBrowserConfig;
+  conversationUrl?: string | null;
+  sessionId?: string;
+  answerMarkdown?: string;
+  answerMessageId?: string;
+  logger: BrowserLogger;
+}): Promise<{ summary?: ProviderNativeCaptureSummary; artifacts: SessionArtifact[] }> {
+  if (!params.config.captureProviderNative) {
+    return { artifacts: [] };
+  }
+  const conversationId = params.conversationUrl
+    ? extractConversationIdFromUrl(params.conversationUrl)
+    : undefined;
+  return finalizeProviderNativeCapture({
+    Runtime: params.Runtime,
+    conversationId,
+    conversationUrl: params.conversationUrl,
+    sessionId: params.sessionId,
+    answerMarkdown: params.answerMarkdown,
+    answerMessageId: params.answerMessageId,
+    logger: params.logger,
+  });
+}
+
 function buildSkippedModelSelectionEvidence(
   desiredModel: string | null | undefined,
   strategy: BrowserModelSelectionEvidence["strategy"],
@@ -1082,6 +1121,7 @@ async function runBrowserModeInternal(
   const startedAt = Date.now();
   let answerText = "";
   let answerMarkdown = "";
+  let answerMessageId: string | undefined;
   let answerHtml = "";
   let runStatus: "attempted" | "complete" | "cancelled" = "attempted";
   let connectionClosedUnexpectedly = false;
@@ -1738,6 +1778,14 @@ async function runBrowserModeInternal(
           }),
         logger,
       );
+      const providerCapture = await runProviderNativeCapture({
+        Runtime,
+        config,
+        conversationUrl: lastUrl,
+        sessionId: options.sessionId,
+        answerMarkdown: researchResult.text,
+        logger,
+      });
       const transcriptArtifact = await saveOptionalArtifact(
         () =>
           saveBrowserTranscriptArtifact({
@@ -1745,12 +1793,18 @@ async function runBrowserModeInternal(
             prompt: promptText,
             answerMarkdown: researchResult.text,
             conversationUrl: lastUrl,
-            artifacts: appendArtifacts(undefined, [reportArtifact]),
+            artifacts: appendArtifacts(
+              appendArtifacts(undefined, [reportArtifact]),
+              providerCapture.artifacts,
+            ),
             logger,
           }),
         logger,
       );
-      const savedArtifacts = appendArtifacts(undefined, [reportArtifact, transcriptArtifact]);
+      const savedArtifacts = appendArtifacts(
+        appendArtifacts(undefined, [reportArtifact, transcriptArtifact]),
+        providerCapture.artifacts,
+      );
       const archive = await maybeArchiveCompletedConversation({
         Runtime,
         logger,
@@ -1764,6 +1818,7 @@ async function runBrowserModeInternal(
         answerMarkdown: researchResult.text,
         answerHtml: researchResult.html,
         artifacts: savedArtifacts,
+        providerNativeCapture: providerCapture.summary,
         archive,
         modelSelection: modelSelectionEvidence,
         thinkingSelection: thinkingSelectionEvidence,
@@ -2149,6 +2204,7 @@ async function runBrowserModeInternal(
           turnAnswerMarkdown = bestText;
         }
       }
+      answerMessageId = turnAnswer.meta.messageId ?? undefined;
       return {
         label,
         answerText: turnAnswerText,
@@ -2256,6 +2312,19 @@ async function runBrowserModeInternal(
     });
     const savedImageArtifacts = appendArtifacts(undefined, imageArtifacts.savedImages);
     const savedBrowserArtifacts = appendArtifacts(savedImageArtifacts, fileArtifacts.savedFiles);
+    const providerCapture = await runProviderNativeCapture({
+      Runtime,
+      config,
+      conversationUrl: lastUrl,
+      sessionId: options.sessionId,
+      answerMarkdown,
+      answerMessageId,
+      logger,
+    });
+    const browserArtifactsWithCapture = appendArtifacts(
+      savedBrowserArtifacts,
+      providerCapture.artifacts,
+    );
     const transcriptArtifact = await saveOptionalArtifact(
       () =>
         saveBrowserTranscriptArtifact({
@@ -2263,12 +2332,12 @@ async function runBrowserModeInternal(
           prompt: promptText,
           answerMarkdown,
           conversationUrl: lastUrl,
-          artifacts: savedBrowserArtifacts,
+          artifacts: browserArtifactsWithCapture,
           logger,
         }),
       logger,
     );
-    const savedArtifacts = appendArtifacts(savedBrowserArtifacts, [transcriptArtifact]);
+    const savedArtifacts = appendArtifacts(browserArtifactsWithCapture, [transcriptArtifact]);
     const archive = await maybeArchiveCompletedConversation({
       Runtime,
       logger,
@@ -2289,6 +2358,7 @@ async function runBrowserModeInternal(
       answerMarkdown,
       answerHtml: answerHtml.length > 0 ? answerHtml : undefined,
       artifacts: savedArtifacts,
+      providerNativeCapture: providerCapture.summary,
       generatedImages: imageArtifacts.generatedImages,
       savedImages: imageArtifacts.savedImages,
       downloadableFiles: fileArtifacts.files,
@@ -2962,6 +3032,7 @@ async function runRemoteBrowserMode(
   const startedAt = Date.now();
   let answerText = "";
   let answerMarkdown = "";
+  let answerMessageId: string | undefined;
   let answerHtml = "";
   let connectionClosedUnexpectedly = false;
   let runStatus: "attempted" | "complete" | "cancelled" = "attempted";
@@ -3345,6 +3416,14 @@ async function runRemoteBrowserMode(
           }),
         logger,
       );
+      const providerCapture = await runProviderNativeCapture({
+        Runtime,
+        config,
+        conversationUrl: lastUrl,
+        sessionId: options.sessionId,
+        answerMarkdown: researchResult.text,
+        logger,
+      });
       const transcriptArtifact = await saveOptionalArtifact(
         () =>
           saveBrowserTranscriptArtifact({
@@ -3352,12 +3431,18 @@ async function runRemoteBrowserMode(
             prompt: promptText,
             answerMarkdown: researchResult.text,
             conversationUrl: lastUrl,
-            artifacts: appendArtifacts(undefined, [reportArtifact]),
+            artifacts: appendArtifacts(
+              appendArtifacts(undefined, [reportArtifact]),
+              providerCapture.artifacts,
+            ),
             logger,
           }),
         logger,
       );
-      const savedArtifacts = appendArtifacts(undefined, [reportArtifact, transcriptArtifact]);
+      const savedArtifacts = appendArtifacts(
+        appendArtifacts(undefined, [reportArtifact, transcriptArtifact]),
+        providerCapture.artifacts,
+      );
       const archive = await maybeArchiveCompletedConversation({
         Runtime,
         logger,
@@ -3372,6 +3457,7 @@ async function runRemoteBrowserMode(
         answerMarkdown: researchResult.text,
         answerHtml: researchResult.html,
         artifacts: savedArtifacts,
+        providerNativeCapture: providerCapture.summary,
         archive,
         modelSelection: modelSelectionEvidence,
         thinkingSelection: thinkingSelectionEvidence,
@@ -3713,6 +3799,7 @@ async function runRemoteBrowserMode(
           turnAnswerMarkdown = bestText;
         }
       }
+      answerMessageId = turnAnswer.meta.messageId ?? undefined;
       return {
         label,
         answerText: turnAnswerText,
@@ -3812,6 +3899,19 @@ async function runRemoteBrowserMode(
     });
     const savedImageArtifacts = appendArtifacts(undefined, imageArtifacts.savedImages);
     const savedBrowserArtifacts = appendArtifacts(savedImageArtifacts, fileArtifacts.savedFiles);
+    const providerCapture = await runProviderNativeCapture({
+      Runtime,
+      config,
+      conversationUrl: lastUrl,
+      sessionId: options.sessionId,
+      answerMarkdown,
+      answerMessageId,
+      logger,
+    });
+    const browserArtifactsWithCapture = appendArtifacts(
+      savedBrowserArtifacts,
+      providerCapture.artifacts,
+    );
     const transcriptArtifact = await saveOptionalArtifact(
       () =>
         saveBrowserTranscriptArtifact({
@@ -3819,12 +3919,12 @@ async function runRemoteBrowserMode(
           prompt: promptText,
           answerMarkdown,
           conversationUrl: lastUrl,
-          artifacts: savedBrowserArtifacts,
+          artifacts: browserArtifactsWithCapture,
           logger,
         }),
       logger,
     );
-    const savedArtifacts = appendArtifacts(savedBrowserArtifacts, [transcriptArtifact]);
+    const savedArtifacts = appendArtifacts(browserArtifactsWithCapture, [transcriptArtifact]);
     const archive = await maybeArchiveCompletedConversation({
       Runtime,
       logger,
@@ -3862,6 +3962,7 @@ async function runRemoteBrowserMode(
       submittedPromptHash,
       ownedRecoveryTarget,
       artifacts: savedArtifacts,
+      providerNativeCapture: providerCapture.summary,
       generatedImages: imageArtifacts.generatedImages,
       savedImages: imageArtifacts.savedImages,
       downloadableFiles: fileArtifacts.files,

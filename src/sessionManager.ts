@@ -1,3 +1,4 @@
+import type { ProviderNativeCaptureSummary } from "./browser/chatgptConversation.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { createWriteStream, mkdirSync } from "node:fs";
@@ -90,6 +91,8 @@ export interface BrowserSessionConfig {
   archiveConversations?: BrowserArchiveMode;
   /** Browser-only: existing ChatGPT conversation URL to resume before submitting. */
   resumeConversationUrl?: string | null;
+  /** Capture ChatGPT's own conversation document plus independent per-turn digests. */
+  captureProviderNative?: boolean;
 }
 
 export interface BrowserRecoveryTarget {
@@ -199,6 +202,7 @@ export interface BrowserMetadata {
   archive?: BrowserArchiveResult;
   modelSelection?: BrowserModelSelectionEvidence;
   thinkingSelection?: BrowserThinkingSelectionEvidence;
+  providerNativeCapture?: ProviderNativeCaptureSummary;
   warnings?: BrowserRunWarning[];
 }
 

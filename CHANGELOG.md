@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Browser: optionally save ChatGPT’s verbatim conversation record and independent turn digests, with answer fidelity evidence and best-effort fallback; thanks @frontierkodiak.
+
 ## 0.20.3 - 2026-09-13
 
 **Highlights:** Gemini is selected consistently across CLI, MCP, and detached workers; cookie values are redacted from verbose logs.
