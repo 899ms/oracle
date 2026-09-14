@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.21.0 - 2026-09-14
+
+**Highlights:** Opt-in ChatGPT conversation records and independent turn digests provide evidence of answer fidelity.
 
 - Browser: optionally save ChatGPT’s verbatim conversation record and independent turn digests, with answer fidelity evidence and best-effort fallback; thanks @frontierkodiak.
 
