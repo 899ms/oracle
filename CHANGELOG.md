@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.21.1 - 2026-09-14
 
 **Highlights:** Live Gemini answers work out of the box.
