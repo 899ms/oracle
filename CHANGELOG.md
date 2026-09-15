@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.21.1 - 2026-09-14
+
+**Highlights:** Live Gemini answers work out of the box.
 
 - Gemini: accept Google's large security and reporting response headers automatically so live web answers work without a Node header-limit workaround, including through remote hosts.
 - Remote: dispatch Gemini browser models through the host's Gemini web executor for new runs and restarts, preserve host-only authentication and Gemini text options, and support the host's running Chrome connection. Fixes #392; thanks @solomonneas.
