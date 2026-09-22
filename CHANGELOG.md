@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.21.2 - 2026-09-22
 
 **Highlights:** Reliable process identity on localized systems and working verbose CLI help.
