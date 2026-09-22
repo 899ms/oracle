@@ -283,6 +283,8 @@ async function queryProcessStartTimeMs(pid: number): Promise<number | null> {
       maxBuffer: 1024 * 1024,
       windowsHide: true,
       timeout: 5000,
+      // Keep ps timestamps parseable regardless of the user's locale.
+      env: { ...process.env, LC_ALL: "C" },
     });
     const startedAt = Date.parse(String(stdout ?? "").trim());
     return Number.isFinite(startedAt) ? startedAt : null;
