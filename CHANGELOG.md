@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Browser: preserve reachable IPv6 Chrome profiles and release failed DevTools probe timers promptly; thanks @devYRPauli.
+- CLI: honor session model and rendering flags, serve cookie sync, and background bridge startup; keep bridge credentials out of child-process arguments and rotate them on ordinary restarts; thanks @vincent-peng.
 
 ## 0.21.2 - 2026-09-22
 
