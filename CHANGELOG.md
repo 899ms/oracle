@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.21.3 - 2026-09-24
 
 **Highlights:** Reliable session flags, preserved file aliases, and IPv6 Chrome profile probes.
