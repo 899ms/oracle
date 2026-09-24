@@ -1,11 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.21.3 - 2026-09-24
 
-- CLI: restore `session <id> --path` while preserving the root `--path` file alias, including flags before the subcommand; fixes #509, thanks @vincent-peng.
+**Highlights:** Reliable session flags, preserved file aliases, and IPv6 Chrome profile probes.
 
-- Browser: preserve reachable IPv6 Chrome profiles and release failed DevTools probe timers promptly; thanks @devYRPauli.
 - CLI: honor session model and rendering flags, serve cookie sync, and background bridge startup; keep bridge credentials out of child-process arguments and rotate them on ordinary restarts; thanks @vincent-peng.
+- CLI: restore `session <id> --path` while preserving the root `--path` file alias, including flags before the subcommand; fixes #509, thanks @vincent-peng.
+- Browser: preserve reachable IPv6 Chrome profiles and release failed DevTools probe timers promptly; thanks @devYRPauli.
 
 ## 0.21.2 - 2026-09-22
 
